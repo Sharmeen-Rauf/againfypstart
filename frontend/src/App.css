@@ -1,0 +1,37 @@
+.App {
+  min-height: 100vh;
+}
+
+.navbar {
+  background-color: #007bff;
+  color: white;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.navbar h1 {
+  font-size: 24px;
+}
+
+.navbar .user-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.navbar button {
+  background-color: rgba(255,255,255,0.2);
+  color: white;
+  border: 1px solid white;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.navbar button:hover {
+  background-color: rgba(255,255,255,0.3);
+}
+
