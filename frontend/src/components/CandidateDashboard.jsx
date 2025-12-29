@@ -49,7 +49,7 @@ const CandidateDashboard = () => {
     try {
       setLoading(true)
       const response = await axios.post(`${API_BASE_URL}/api/interviews/start`, {
-        job_role_id: parseInt(selectedRole)
+        job_role_id: selectedRole
       })
       
       navigate(`/candidate/interview/${response.data.id}`)

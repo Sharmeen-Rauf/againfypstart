@@ -1,83 +1,84 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, ForeignKey, Boolean
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from app.database import Base
+from beanie import Document
+from pydantic import Field, EmailStr
+from typing import Optional
+from datetime import datetime
+from bson import ObjectId
 
-class User(Base):
-    __tablename__ = "users"
+class User(Document):
+    email: EmailStr
+    username: str = Field(..., unique=True)
+    hashed_password: str
+    role: str  # "hr" or "candidate"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    username = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
-    role = Column(String)  # "hr" or "candidate"
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    class Settings:
+        name = "users"
+        indexes = [
+            "email",
+            "username",
+        ]
+
+class JobRole(Document):
+    title: str = Field(..., unique=True)
+    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     
-    # Relationships
-    interviews = relationship("Interview", back_populates="candidate")
-    
-class JobRole(Base):
-    __tablename__ = "job_roles"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, unique=True, index=True)
-    description = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    # Relationships
-    interviews = relationship("Interview", back_populates="job_role")
-    
-class Interview(Base):
-    __tablename__ = "interviews"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    candidate_id = Column(Integer, ForeignKey("users.id"))
-    job_role_id = Column(Integer, ForeignKey("job_roles.id"))
-    status = Column(String, default="in_progress")  # "in_progress", "completed", "cancelled"
-    started_at = Column(DateTime(timezone=True), server_default=func.now())
-    completed_at = Column(DateTime(timezone=True), nullable=True)
+    class Settings:
+        name = "job_roles"
+        indexes = [
+            "title",
+        ]
+
+class Interview(Document):
+    candidate_id: ObjectId
+    job_role_id: ObjectId
+    status: str = "in_progress"  # "in_progress", "completed", "cancelled"
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    completed_at: Optional[datetime] = None
     
     # Final scores
-    technical_score = Column(Float, default=0.0)
-    clarity_score = Column(Float, default=0.0)
-    relevance_score = Column(Float, default=0.0)
-    sentiment_score = Column(Float, default=0.0)
-    final_score = Column(Float, default=0.0)
+    technical_score: float = 0.0
+    clarity_score: float = 0.0
+    relevance_score: float = 0.0
+    sentiment_score: float = 0.0
+    final_score: float = 0.0
     
-    # Relationships
-    candidate = relationship("User", back_populates="interviews")
-    job_role = relationship("JobRole", back_populates="interviews")
-    responses = relationship("InterviewResponse", back_populates="interview", cascade="all, delete-orphan")
+    class Settings:
+        name = "interviews"
+        indexes = [
+            "candidate_id",
+            "job_role_id",
+            "status",
+        ]
+
+class Question(Document):
+    interview_id: ObjectId
+    question_text: str
+    question_number: int
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     
-class Question(Base):
-    __tablename__ = "questions"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    interview_id = Column(Integer, ForeignKey("interviews.id"))
-    question_text = Column(Text)
-    question_number = Column(Integer)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    # Relationships
-    response = relationship("InterviewResponse", back_populates="question", uselist=False)
-    
-class InterviewResponse(Base):
-    __tablename__ = "interview_responses"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    interview_id = Column(Integer, ForeignKey("interviews.id"))
-    question_id = Column(Integer, ForeignKey("questions.id"))
-    response_text = Column(Text)
+    class Settings:
+        name = "questions"
+        indexes = [
+            "interview_id",
+        ]
+
+class InterviewResponse(Document):
+    interview_id: ObjectId
+    question_id: ObjectId
+    response_text: str
     
     # Individual scores for this response
-    technical_score = Column(Float, default=0.0)
-    clarity_score = Column(Float, default=0.0)
-    relevance_score = Column(Float, default=0.0)
-    sentiment_score = Column(Float, default=0.0)
+    technical_score: float = 0.0
+    clarity_score: float = 0.0
+    relevance_score: float = 0.0
+    sentiment_score: float = 0.0
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     
-    # Relationships
-    interview = relationship("Interview", back_populates="responses")
-    question = relationship("Question", back_populates="response")
-
+    class Settings:
+        name = "interview_responses"
+        indexes = [
+            "interview_id",
+            "question_id",
+        ]

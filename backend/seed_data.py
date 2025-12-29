@@ -2,18 +2,17 @@
 Script to seed initial data into the database
 Run this after starting the server for the first time
 """
-from app.database import SessionLocal, engine
-from app.models import Base, User, JobRole
+import asyncio
+from app.database import init_db
+from app.models import User, JobRole
 from app.auth import get_password_hash
 
-# Create all tables
-Base.metadata.create_all(bind=engine)
-
-db = SessionLocal()
-
-try:
+async def seed():
+    # Initialize database
+    await init_db()
+    
     # Create default HR user
-    hr_user = db.query(User).filter(User.username == "hr_admin").first()
+    hr_user = await User.find_one(User.username == "hr_admin")
     if not hr_user:
         hr_user = User(
             email="hr@botboss.com",
@@ -21,11 +20,11 @@ try:
             hashed_password=get_password_hash("admin123"),
             role="hr"
         )
-        db.add(hr_user)
+        await hr_user.insert()
         print("Created HR admin user: hr_admin / admin123")
     
     # Create default candidate user
-    candidate_user = db.query(User).filter(User.username == "test_candidate").first()
+    candidate_user = await User.find_one(User.username == "test_candidate")
     if not candidate_user:
         candidate_user = User(
             email="candidate@test.com",
@@ -33,7 +32,7 @@ try:
             hashed_password=get_password_hash("test123"),
             role="candidate"
         )
-        db.add(candidate_user)
+        await candidate_user.insert()
         print("Created test candidate: test_candidate / test123")
     
     # Create default job roles
@@ -45,21 +44,16 @@ try:
     ]
     
     for role_data in roles_data:
-        existing_role = db.query(JobRole).filter(JobRole.title == role_data["title"]).first()
+        existing_role = await JobRole.find_one(JobRole.title == role_data["title"])
         if not existing_role:
             role = JobRole(**role_data)
-            db.add(role)
+            await role.insert()
             print(f"Created job role: {role_data['title']}")
     
-    db.commit()
     print("\n✅ Seed data created successfully!")
     print("\nDefault credentials:")
     print("HR Admin: hr_admin / admin123")
     print("Test Candidate: test_candidate / test123")
-    
-except Exception as e:
-    db.rollback()
-    print(f"Error seeding data: {str(e)}")
-finally:
-    db.close()
 
+if __name__ == "__main__":
+    asyncio.run(seed())

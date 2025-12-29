@@ -1,23 +1,40 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from beanie import init_beanie
+from motor.motor_asyncio import AsyncIOMotorClient
 import os
+from dotenv import load_dotenv
 
-# SQLite database URL
-SQLALCHEMY_DATABASE_URL = "sqlite:///./botboss.db"
+# Load environment variables
+load_dotenv()
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+# MongoDB connection URL from environment variable
+MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017/botboss")
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Database name
+DATABASE_NAME = os.getenv("DATABASE_NAME", "botboss")
 
-Base = declarative_base()
+client = None
+database = None
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def init_db():
+    """Initialize MongoDB connection and Beanie"""
+    global client, database
+    
+    client = AsyncIOMotorClient(MONGODB_URL)
+    database = client[DATABASE_NAME]
+    
+    # Import models here to avoid circular imports
+    from app.models import User, JobRole, Interview, Question, InterviewResponse
+    
+    # Initialize Beanie with models
+    await init_beanie(
+        database=database,
+        document_models=[User, JobRole, Interview, Question, InterviewResponse]
+    )
+    
+    return database
 
+async def close_db():
+    """Close MongoDB connection"""
+    global client
+    if client:
+        client.close()

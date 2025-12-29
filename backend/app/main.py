@@ -1,17 +1,27 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine, Base
+from contextlib import asynccontextmanager
+from app.database import init_db, close_db
 from app.routers import auth, interviews, dashboard, roles
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize database
+    await init_db()
+    yield
+    # Shutdown: Close database connection
+    await close_db()
 
-app = FastAPI(title="Botboss API", version="1.0.0")
+app = FastAPI(
+    title="Botboss API", 
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,4 +40,3 @@ def root():
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy"}
-

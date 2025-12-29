@@ -1,15 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db
 from app import models, schemas
 from app.auth import get_current_user
+from bson import ObjectId
 
 router = APIRouter()
 
 @router.get("/candidates", response_model=List[schemas.CandidateSummary])
-def get_all_candidates(db: Session = Depends(get_db),
-                       current_user: models.User = Depends(get_current_user)):
+async def get_all_candidates(current_user: models.User = Depends(get_current_user)):
     """Get all candidates with their interview scores (HR only)"""
     if current_user.role != "hr":
         raise HTTPException(
@@ -17,22 +15,22 @@ def get_all_candidates(db: Session = Depends(get_db),
             detail="Only HR can access candidate data"
         )
     
-    # Get all completed interviews with candidate and job role info
-    interviews = db.query(models.Interview).filter(
+    # Get all completed interviews
+    interviews = await models.Interview.find(
         models.Interview.status == "completed"
-    ).all()
+    ).to_list()
     
     candidate_summaries = []
     for interview in interviews:
-        candidate = db.query(models.User).filter(models.User.id == interview.candidate_id).first()
-        job_role = db.query(models.JobRole).filter(models.JobRole.id == interview.job_role_id).first()
+        candidate = await models.User.get(interview.candidate_id)
+        job_role = await models.JobRole.get(interview.job_role_id)
         
         if candidate and job_role:
             candidate_summaries.append(schemas.CandidateSummary(
-                candidate_id=candidate.id,
+                candidate_id=str(candidate.id),
                 candidate_username=candidate.username,
                 candidate_email=candidate.email,
-                interview_id=interview.id,
+                interview_id=str(interview.id),
                 job_role=job_role.title,
                 final_score=interview.final_score,
                 status=interview.status,
@@ -45,8 +43,7 @@ def get_all_candidates(db: Session = Depends(get_db),
     return candidate_summaries
 
 @router.get("/candidates/{candidate_id}/interview/{interview_id}")
-def get_candidate_interview_details(candidate_id: int, interview_id: int,
-                                    db: Session = Depends(get_db),
+async def get_candidate_interview_details(candidate_id: str, interview_id: str,
                                     current_user: models.User = Depends(get_current_user)):
     """Get detailed interview information for a candidate (HR only)"""
     if current_user.role != "hr":
@@ -55,10 +52,16 @@ def get_candidate_interview_details(candidate_id: int, interview_id: int,
             detail="Only HR can access candidate details"
         )
     
-    interview = db.query(models.Interview).filter(
-        models.Interview.id == interview_id,
-        models.Interview.candidate_id == candidate_id
-    ).first()
+    if not ObjectId.is_valid(interview_id) or not ObjectId.is_valid(candidate_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid ID"
+        )
+    
+    interview = await models.Interview.find_one(
+        models.Interview.id == ObjectId(interview_id),
+        models.Interview.candidate_id == ObjectId(candidate_id)
+    )
     
     if not interview:
         raise HTTPException(
@@ -66,25 +69,25 @@ def get_candidate_interview_details(candidate_id: int, interview_id: int,
             detail="Interview not found"
         )
     
-    candidate = db.query(models.User).filter(models.User.id == candidate_id).first()
-    job_role = db.query(models.JobRole).filter(models.JobRole.id == interview.job_role_id).first()
-    questions = db.query(models.Question).filter(
-        models.Question.interview_id == interview_id
-    ).order_by(models.Question.question_number).all()
+    candidate = await models.User.get(ObjectId(candidate_id))
+    job_role = await models.JobRole.get(interview.job_role_id)
+    questions = await models.Question.find(
+        models.Question.interview_id == ObjectId(interview_id)
+    ).sort("+question_number").to_list()
     
-    responses = db.query(models.InterviewResponse).filter(
-        models.InterviewResponse.interview_id == interview_id
-    ).all()
+    responses = await models.InterviewResponse.find(
+        models.InterviewResponse.interview_id == ObjectId(interview_id)
+    ).to_list()
     
     # Build response map
-    response_map = {r.question_id: r for r in responses}
+    response_map = {str(r.question_id): r for r in responses}
     
     # Build detailed response
     detailed_questions = []
     for question in questions:
-        response = response_map.get(question.id)
+        response = response_map.get(str(question.id))
         detailed_questions.append({
-            "question_id": question.id,
+            "question_id": str(question.id),
             "question_text": question.question_text,
             "question_number": question.question_number,
             "response": {
@@ -98,13 +101,13 @@ def get_candidate_interview_details(candidate_id: int, interview_id: int,
     
     return {
         "candidate": {
-            "id": candidate.id,
+            "id": str(candidate.id),
             "username": candidate.username,
             "email": candidate.email
         },
         "job_role": job_role.title if job_role else None,
         "interview": {
-            "id": interview.id,
+            "id": str(interview.id),
             "status": interview.status,
             "started_at": interview.started_at,
             "completed_at": interview.completed_at,
@@ -118,8 +121,7 @@ def get_candidate_interview_details(candidate_id: int, interview_id: int,
     }
 
 @router.get("/statistics")
-def get_dashboard_statistics(db: Session = Depends(get_db),
-                             current_user: models.User = Depends(get_current_user)):
+async def get_dashboard_statistics(current_user: models.User = Depends(get_current_user)):
     """Get dashboard statistics (HR only)"""
     if current_user.role != "hr":
         raise HTTPException(
@@ -127,20 +129,22 @@ def get_dashboard_statistics(db: Session = Depends(get_db),
             detail="Only HR can access statistics"
         )
     
-    total_interviews = db.query(models.Interview).count()
-    completed_interviews = db.query(models.Interview).filter(
+    total_interviews = await models.Interview.find_all().count()
+    completed_interviews = await models.Interview.find(
         models.Interview.status == "completed"
     ).count()
-    in_progress_interviews = db.query(models.Interview).filter(
+    in_progress_interviews = await models.Interview.find(
         models.Interview.status == "in_progress"
     ).count()
-    total_candidates = db.query(models.User).filter(models.User.role == "candidate").count()
-    total_roles = db.query(models.JobRole).count()
+    total_candidates = await models.User.find(
+        models.User.role == "candidate"
+    ).count()
+    total_roles = await models.JobRole.find_all().count()
     
     # Calculate average final score
-    completed = db.query(models.Interview).filter(
+    completed = await models.Interview.find(
         models.Interview.status == "completed"
-    ).all()
+    ).to_list()
     avg_score = sum(i.final_score for i in completed) / len(completed) if completed else 0
     
     return {
@@ -151,4 +155,3 @@ def get_dashboard_statistics(db: Session = Depends(get_db),
         "total_job_roles": total_roles,
         "average_final_score": round(avg_score, 2) if completed else 0
     }
-

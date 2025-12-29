@@ -17,6 +17,7 @@ botboss.db
 .env
 .env.local
 .env.*.local
+backend/.env
 
 # Node
 node_modules/

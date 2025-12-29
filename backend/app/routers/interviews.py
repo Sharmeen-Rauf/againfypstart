@@ -1,17 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from typing import List
 from datetime import datetime
-from app.database import get_db
 from app import models, schemas
 from app.auth import get_current_user
 from app.ai_service import generate_role_questions, evaluate_response, calculate_final_score
+from bson import ObjectId
 
 router = APIRouter()
 
 @router.post("/start", response_model=schemas.InterviewResponse)
-def start_interview(interview_data: schemas.InterviewCreate, db: Session = Depends(get_db),
+async def start_interview(interview_data: schemas.InterviewCreate,
                     current_user: models.User = Depends(get_current_user)):
     """Start a new interview"""
     if current_user.role != "candidate":
@@ -21,7 +19,13 @@ def start_interview(interview_data: schemas.InterviewCreate, db: Session = Depen
         )
     
     # Verify job role exists
-    job_role = db.query(models.JobRole).filter(models.JobRole.id == interview_data.job_role_id).first()
+    if not ObjectId.is_valid(interview_data.job_role_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid job role ID"
+        )
+    
+    job_role = await models.JobRole.get(ObjectId(interview_data.job_role_id))
     if not job_role:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -29,10 +33,10 @@ def start_interview(interview_data: schemas.InterviewCreate, db: Session = Depen
         )
     
     # Check if candidate has an in-progress interview
-    existing_interview = db.query(models.Interview).filter(
+    existing_interview = await models.Interview.find_one(
         models.Interview.candidate_id == current_user.id,
         models.Interview.status == "in_progress"
-    ).first()
+    )
     
     if existing_interview:
         raise HTTPException(
@@ -43,12 +47,10 @@ def start_interview(interview_data: schemas.InterviewCreate, db: Session = Depen
     # Create interview
     db_interview = models.Interview(
         candidate_id=current_user.id,
-        job_role_id=interview_data.job_role_id,
+        job_role_id=ObjectId(interview_data.job_role_id),
         status="in_progress"
     )
-    db.add(db_interview)
-    db.commit()
-    db.refresh(db_interview)
+    await db_interview.insert()
     
     # Generate questions for this role
     questions_text = generate_role_questions(job_role.title, num_questions=5)
@@ -60,15 +62,12 @@ def start_interview(interview_data: schemas.InterviewCreate, db: Session = Depen
             question_text=question_text,
             question_number=idx
         )
-        db.add(db_question)
-    
-    db.commit()
+        await db_question.insert()
     
     return db_interview
 
 @router.get("/current", response_model=schemas.InterviewResponse)
-def get_current_interview(db: Session = Depends(get_db),
-                          current_user: models.User = Depends(get_current_user)):
+async def get_current_interview(current_user: models.User = Depends(get_current_user)):
     """Get current in-progress interview for candidate"""
     if current_user.role != "candidate":
         raise HTTPException(
@@ -76,10 +75,10 @@ def get_current_interview(db: Session = Depends(get_db),
             detail="Only candidates can access their interviews"
         )
     
-    interview = db.query(models.Interview).filter(
+    interview = await models.Interview.find_one(
         models.Interview.candidate_id == current_user.id,
         models.Interview.status == "in_progress"
-    ).first()
+    )
     
     if not interview:
         raise HTTPException(
@@ -90,10 +89,16 @@ def get_current_interview(db: Session = Depends(get_db),
     return interview
 
 @router.get("/{interview_id}/questions", response_model=List[schemas.QuestionResponse])
-def get_interview_questions(interview_id: int, db: Session = Depends(get_db),
+async def get_interview_questions(interview_id: str,
                             current_user: models.User = Depends(get_current_user)):
     """Get all questions for an interview"""
-    interview = db.query(models.Interview).filter(models.Interview.id == interview_id).first()
+    if not ObjectId.is_valid(interview_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid interview ID"
+        )
+    
+    interview = await models.Interview.get(ObjectId(interview_id))
     if not interview:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -107,15 +112,14 @@ def get_interview_questions(interview_id: int, db: Session = Depends(get_db),
             detail="Access denied"
         )
     
-    questions = db.query(models.Question).filter(
-        models.Question.interview_id == interview_id
-    ).order_by(models.Question.question_number).all()
+    questions = await models.Question.find(
+        models.Question.interview_id == ObjectId(interview_id)
+    ).sort("+question_number").to_list()
     
     return questions
 
 @router.post("/{interview_id}/respond")
-def submit_response(interview_id: int, response_data: schemas.ResponseCreate,
-                    db: Session = Depends(get_db),
+async def submit_response(interview_id: str, response_data: schemas.ResponseCreate,
                     current_user: models.User = Depends(get_current_user)):
     """Submit response to a question"""
     if current_user.role != "candidate":
@@ -124,8 +128,14 @@ def submit_response(interview_id: int, response_data: schemas.ResponseCreate,
             detail="Only candidates can submit responses"
         )
     
+    if not ObjectId.is_valid(interview_id) or not ObjectId.is_valid(response_data.question_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid ID"
+        )
+    
     # Verify interview exists and belongs to candidate
-    interview = db.query(models.Interview).filter(models.Interview.id == interview_id).first()
+    interview = await models.Interview.get(ObjectId(interview_id))
     if not interview:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -145,10 +155,10 @@ def submit_response(interview_id: int, response_data: schemas.ResponseCreate,
         )
     
     # Verify question exists and belongs to this interview
-    question = db.query(models.Question).filter(
-        models.Question.id == response_data.question_id,
-        models.Question.interview_id == interview_id
-    ).first()
+    question = await models.Question.find_one(
+        models.Question.id == ObjectId(response_data.question_id),
+        models.Question.interview_id == ObjectId(interview_id)
+    )
     
     if not question:
         raise HTTPException(
@@ -157,9 +167,9 @@ def submit_response(interview_id: int, response_data: schemas.ResponseCreate,
         )
     
     # Check if response already exists
-    existing_response = db.query(models.InterviewResponse).filter(
-        models.InterviewResponse.question_id == response_data.question_id
-    ).first()
+    existing_response = await models.InterviewResponse.find_one(
+        models.InterviewResponse.question_id == ObjectId(response_data.question_id)
+    )
     
     if existing_response:
         raise HTTPException(
@@ -172,8 +182,8 @@ def submit_response(interview_id: int, response_data: schemas.ResponseCreate,
     
     # Create response record
     db_response = models.InterviewResponse(
-        interview_id=interview_id,
-        question_id=response_data.question_id,
+        interview_id=ObjectId(interview_id),
+        question_id=ObjectId(response_data.question_id),
         response_text=response_data.response_text,
         technical_score=evaluation["technical_score"],
         clarity_score=evaluation["clarity_score"],
@@ -181,13 +191,11 @@ def submit_response(interview_id: int, response_data: schemas.ResponseCreate,
         sentiment_score=evaluation["sentiment_score"]
     )
     
-    db.add(db_response)
-    db.commit()
-    db.refresh(db_response)
+    await db_response.insert()
     
     return {
         "message": "Response submitted successfully",
-        "response_id": db_response.id,
+        "response_id": str(db_response.id),
         "scores": {
             "technical_score": evaluation["technical_score"],
             "clarity_score": evaluation["clarity_score"],
@@ -197,7 +205,7 @@ def submit_response(interview_id: int, response_data: schemas.ResponseCreate,
     }
 
 @router.post("/{interview_id}/complete")
-def complete_interview(interview_id: int, db: Session = Depends(get_db),
+async def complete_interview(interview_id: str,
                        current_user: models.User = Depends(get_current_user)):
     """Complete an interview and calculate final scores"""
     if current_user.role != "candidate":
@@ -206,7 +214,13 @@ def complete_interview(interview_id: int, db: Session = Depends(get_db),
             detail="Only candidates can complete interviews"
         )
     
-    interview = db.query(models.Interview).filter(models.Interview.id == interview_id).first()
+    if not ObjectId.is_valid(interview_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid interview ID"
+        )
+    
+    interview = await models.Interview.get(ObjectId(interview_id))
     if not interview:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -226,9 +240,9 @@ def complete_interview(interview_id: int, db: Session = Depends(get_db),
         )
     
     # Get all responses for this interview
-    responses = db.query(models.InterviewResponse).filter(
-        models.InterviewResponse.interview_id == interview_id
-    ).all()
+    responses = await models.InterviewResponse.find(
+        models.InterviewResponse.interview_id == ObjectId(interview_id)
+    ).to_list()
     
     if not responses:
         raise HTTPException(
@@ -254,8 +268,7 @@ def complete_interview(interview_id: int, db: Session = Depends(get_db),
     interview.status = "completed"
     interview.completed_at = datetime.utcnow()
     
-    db.commit()
-    db.refresh(interview)
+    await interview.save()
     
     return {
         "message": "Interview completed successfully",
@@ -269,10 +282,16 @@ def complete_interview(interview_id: int, db: Session = Depends(get_db),
     }
 
 @router.get("/{interview_id}/responses", response_model=List[schemas.ResponseDetail])
-def get_interview_responses(interview_id: int, db: Session = Depends(get_db),
+async def get_interview_responses(interview_id: str,
                             current_user: models.User = Depends(get_current_user)):
     """Get all responses for an interview"""
-    interview = db.query(models.Interview).filter(models.Interview.id == interview_id).first()
+    if not ObjectId.is_valid(interview_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid interview ID"
+        )
+    
+    interview = await models.Interview.get(ObjectId(interview_id))
     if not interview:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -286,9 +305,8 @@ def get_interview_responses(interview_id: int, db: Session = Depends(get_db),
             detail="Access denied"
         )
     
-    responses = db.query(models.InterviewResponse).filter(
-        models.InterviewResponse.interview_id == interview_id
-    ).all()
+    responses = await models.InterviewResponse.find(
+        models.InterviewResponse.interview_id == ObjectId(interview_id)
+    ).to_list()
     
     return responses
-

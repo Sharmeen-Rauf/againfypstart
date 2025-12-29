@@ -15,7 +15,7 @@ An AI-driven interview platform that automates candidate shortlisting using NLP 
 - **Frontend**: ReactJS with Vite
 - **Backend**: Python FastAPI
 - **AI/NLP**: OpenAI API (GPT-3.5-turbo)
-- **Database**: SQLite
+- **Database**: MongoDB (with Beanie ODM)
 - **Hosting**: Vercel (Frontend) + Railway/Render (Backend)
 
 ## Project Structure
@@ -60,7 +60,9 @@ pip install -r requirements.txt
 ```
 
 3. Create `.env` file:
-```
+```env
+MONGODB_URL=mongodb+srv://f90396245_db_user:resturentwebsitenew@cluster0.94frwr3.mongodb.net/?appName=Cluster0
+DATABASE_NAME=botboss
 OPENAI_API_KEY=your-openai-api-key-here
 SECRET_KEY=your-secret-key-for-jwt-tokens
 ```
@@ -127,8 +129,10 @@ After running `seed_data.py`, you can use:
 1. Push code to GitHub
 2. Connect repository to Railway/Render
 3. Set environment variables:
-   - `OPENAI_API_KEY`
-   - `SECRET_KEY`
+   - `MONGODB_URL` - Your MongoDB connection string
+   - `DATABASE_NAME` - Database name (default: botboss)
+   - `OPENAI_API_KEY` - Your OpenAI API key
+   - `SECRET_KEY` - JWT secret key
 4. Deploy
 
 ## API Documentation
@@ -143,7 +147,9 @@ Final Score = (Technical × 0.4) + (Clarity × 0.2) + (Relevance × 0.2) + (Sent
 
 ## Notes
 
-- Make sure to add your OpenAI API key in the backend `.env` file
+- Make sure to add your MongoDB connection string and OpenAI API key in the backend `.env` file
 - Change the SECRET_KEY in production
+- **Never commit the `.env` file to Git** (it contains sensitive credentials)
 - The database will be created automatically when you first run the application
+- See `backend/MONGODB_SETUP.md` for detailed MongoDB setup instructions
 

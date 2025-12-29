@@ -9,12 +9,24 @@ pip install -r requirements.txt
 
 2. **Set Environment Variables**
 Create a `.env` file in the backend directory:
-```
-OPENAI_API_KEY=your-openai-api-key-here
+```env
+MONGODB_URL=mongodb+srv://f90396245_db_user:resturentwebsitenew@cluster0.94frwr3.mongodb.net/?appName=Cluster0
+DATABASE_NAME=botboss
 SECRET_KEY=your-secret-key-for-jwt-tokens
+OPENAI_API_KEY=your-openai-api-key-here
 ```
 
-3. **Run the Server**
+**⚠️ IMPORTANT:** 
+- Never commit the `.env` file to Git
+- The password is stored securely in `.env` (not hardcoded)
+- Change the password if your repository is public
+
+3. **Run Seed Data** (creates default users and roles):
+```bash
+python seed_data.py
+```
+
+4. **Run the Server**:
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
@@ -54,11 +66,26 @@ Once the server is running, visit:
 
 ## Database
 
-The application uses SQLite by default. The database file `botboss.db` will be created automatically on first run.
+The application uses **MongoDB** with Beanie ODM.
+
+- Database connection is configured via `MONGODB_URL` environment variable
+- Database name is set via `DATABASE_NAME` environment variable
+- Collections are created automatically when first used
+
+## Default Credentials
+
+After running `seed_data.py`, you can use:
+
+- **HR Admin**: 
+  - Username: `hr_admin`
+  - Password: `admin123`
+
+- **Test Candidate**: 
+  - Username: `test_candidate`
+  - Password: `test123`
 
 ## Notes
 
 - Make sure to add your OpenAI API key in the `.env` file
 - Change the SECRET_KEY in production
-- The database will be created automatically when you first run the application
-
+- The MongoDB connection string with password should be in `.env` file (never commit it)
