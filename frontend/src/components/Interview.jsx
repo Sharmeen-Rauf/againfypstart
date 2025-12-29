@@ -17,6 +17,7 @@ const Interview = () => {
   const [finalScores, setFinalScores] = useState(null)
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
   useEffect(() => {
     fetchQuestions()
@@ -25,16 +26,16 @@ const Interview = () => {
 
   const fetchQuestions = async () => {
     try {
-      const response = await axios.get(`http://localhost:8000/api/interviews/${interviewId}/questions`)
+      const response = await axios.get(`${API_BASE_URL}/api/interviews/${interviewId}/questions`)
       setQuestions(response.data)
       
       // Check if interview is completed
-      const interviewResponse = await axios.get(`http://localhost:8000/api/interviews/current`)
+      const interviewResponse = await axios.get(`${API_BASE_URL}/api/interviews/current`)
       if (interviewResponse.data.status === 'completed') {
         setInterviewCompleted(true)
         // Fetch final scores
         try {
-          const completeResponse = await axios.post(`http://localhost:8000/api/interviews/${interviewId}/complete`)
+          const completeResponse = await axios.post(`${API_BASE_URL}/api/interviews/${interviewId}/complete`)
           setFinalScores(completeResponse.data.final_scores)
         } catch (e) {
           // Interview already completed, fetch from interview data
@@ -57,7 +58,7 @@ const Interview = () => {
 
   const fetchResponses = async () => {
     try {
-      const response = await axios.get(`http://localhost:8000/api/interviews/${interviewId}/responses`)
+      const response = await axios.get(`${API_BASE_URL}/api/interviews/${interviewId}/responses`)
       const responseMap = {}
       response.data.forEach(r => {
         responseMap[r.question_id] = r.response_text
@@ -79,7 +80,7 @@ const Interview = () => {
     setError('')
 
     try {
-      await axios.post(`http://localhost:8000/api/interviews/${interviewId}/respond`, {
+      await axios.post(`${API_BASE_URL}/api/interviews/${interviewId}/respond`, {
         question_id: currentQuestion.id,
         response_text: currentResponse
       })
@@ -105,7 +106,7 @@ const Interview = () => {
 
   const completeInterview = async () => {
     try {
-      const response = await axios.post(`http://localhost:8000/api/interviews/${interviewId}/complete`)
+      const response = await axios.post(`${API_BASE_URL}/api/interviews/${interviewId}/complete`)
       setFinalScores(response.data.final_scores)
       setInterviewCompleted(true)
     } catch (error) {

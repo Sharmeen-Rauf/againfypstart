@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [token, setToken] = useState(localStorage.getItem('token'))
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
   useEffect(() => {
     if (token) {
@@ -27,7 +28,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUser = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/auth/me')
+      const response = await axios.get(`${API_BASE_URL}/api/auth/me`)
       setUser(response.data)
     } catch (error) {
       console.error('Error fetching user:', error)
@@ -43,7 +44,7 @@ export const AuthProvider = ({ children }) => {
       formData.append('username', username)
       formData.append('password', password)
 
-      const response = await axios.post('http://localhost:8000/api/auth/login', formData, {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/login`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

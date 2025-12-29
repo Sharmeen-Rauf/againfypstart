@@ -12,6 +12,7 @@ const CandidateDashboard = () => {
   const [error, setError] = useState('')
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
   useEffect(() => {
     fetchRoles()
@@ -20,7 +21,7 @@ const CandidateDashboard = () => {
 
   const fetchRoles = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/roles/')
+      const response = await axios.get(`${API_BASE_URL}/api/roles/`)
       setRoles(response.data)
     } catch (error) {
       console.error('Error fetching roles:', error)
@@ -31,7 +32,7 @@ const CandidateDashboard = () => {
 
   const checkCurrentInterview = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/interviews/current')
+      const response = await axios.get(`${API_BASE_URL}/api/interviews/current`)
       setCurrentInterview(response.data)
     } catch (error) {
       // No interview in progress
@@ -47,7 +48,7 @@ const CandidateDashboard = () => {
 
     try {
       setLoading(true)
-      const response = await axios.post('http://localhost:8000/api/interviews/start', {
+      const response = await axios.post(`${API_BASE_URL}/api/interviews/start`, {
         job_role_id: parseInt(selectedRole)
       })
       
