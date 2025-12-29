@@ -26,12 +26,23 @@ OPENAI_API_KEY=your-openai-api-key-here
 python seed_data.py
 ```
 
-4. **Run the Server**:
+4. **Run the Server Locally**:
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
 The API will be available at `http://localhost:8000`
+
+## Deployment on Vercel
+
+See `VERCEL_BACKEND_DEPLOYMENT.md` for detailed instructions on deploying the backend to Vercel.
+
+Quick steps:
+1. Install Vercel CLI: `npm i -g vercel`
+2. Navigate to backend: `cd backend`
+3. Deploy: `vercel`
+4. Add environment variables in Vercel dashboard
+5. Deploy to production: `vercel --prod`
 
 ## API Documentation
 
@@ -89,3 +100,4 @@ After running `seed_data.py`, you can use:
 - Make sure to add your OpenAI API key in the `.env` file
 - Change the SECRET_KEY in production
 - The MongoDB connection string with password should be in `.env` file (never commit it)
+- For Vercel deployment, environment variables must be set in Vercel dashboard

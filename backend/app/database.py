@@ -14,10 +14,19 @@ DATABASE_NAME = os.getenv("DATABASE_NAME", "botboss")
 
 client = None
 database = None
+initialized = False
 
 async def init_db():
     """Initialize MongoDB connection and Beanie"""
-    global client, database
+    global client, database, initialized
+    
+    # In serverless, we initialize on each cold start
+    # Connection pooling is handled by Motor/AsyncIOMotorClient
+    try:
+        if initialized and client:
+            return database
+    except:
+        pass
     
     client = AsyncIOMotorClient(MONGODB_URL)
     database = client[DATABASE_NAME]
@@ -31,10 +40,12 @@ async def init_db():
         document_models=[User, JobRole, Interview, Question, InterviewResponse]
     )
     
+    initialized = True
     return database
 
 async def close_db():
     """Close MongoDB connection"""
-    global client
-    if client:
-        client.close()
+    global client, initialized
+    # In serverless environments like Vercel, connections are managed per invocation
+    # We don't need to close them as they're cleaned up automatically
+    pass

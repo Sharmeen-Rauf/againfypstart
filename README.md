@@ -16,7 +16,7 @@ An AI-driven interview platform that automates candidate shortlisting using NLP 
 - **Backend**: Python FastAPI
 - **AI/NLP**: OpenAI API (GPT-3.5-turbo)
 - **Database**: MongoDB (with Beanie ODM)
-- **Hosting**: Vercel (Frontend) + Railway/Render (Backend)
+- **Hosting**: Vercel (Frontend + Backend)
 
 ## Project Structure
 
@@ -124,16 +124,19 @@ After running `seed_data.py`, you can use:
 3. Set environment variable: `VITE_API_URL` to your backend URL
 4. Deploy
 
-### Backend (Railway/Render)
+### Backend (Vercel)
 
 1. Push code to GitHub
-2. Connect repository to Railway/Render
-3. Set environment variables:
+2. Connect repository to Vercel
+3. Set root directory to `backend`
+4. Set environment variables:
    - `MONGODB_URL` - Your MongoDB connection string
    - `DATABASE_NAME` - Database name (default: botboss)
    - `OPENAI_API_KEY` - Your OpenAI API key
    - `SECRET_KEY` - JWT secret key
-4. Deploy
+5. Deploy
+
+**Note**: See `VERCEL_BACKEND_DEPLOYMENT.md` for detailed deployment instructions.
 
 ## API Documentation
 

@@ -34,41 +34,61 @@
 
 5. **Deploy**
 
-### 2. Backend Deployment (Railway/Render)
+### 2. Backend Deployment (Vercel)
 
-#### Option A: Railway
+#### Using Vercel CLI (Recommended)
 
-1. Go to [railway.app](https://railway.app)
-2. Create new project from GitHub
-3. Select your repository
-4. Set root directory to `backend`
-5. Add environment variables:
+1. **Install Vercel CLI**:
+   ```bash
+   npm i -g vercel
    ```
-   OPENAI_API_KEY=your-openai-api-key
-   SECRET_KEY=your-secret-key
-   ```
-6. Railway will auto-detect Python and install dependencies
-7. Add a start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 
-#### Option B: Render
+2. **Navigate to backend directory**:
+   ```bash
+   cd backend
+   ```
 
-1. Go to [render.com](https://render.com)
-2. Create new Web Service
-3. Connect GitHub repository
-4. Settings:
-   - Root Directory: `backend`
-   - Environment: Python 3
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-5. Add environment variables:
+3. **Login and Deploy**:
+   ```bash
+   vercel login
+   vercel
    ```
-   OPENAI_API_KEY=your-openai-api-key
-   SECRET_KEY=your-secret-key
+
+4. **Deploy to Production**:
+   ```bash
+   vercel --prod
    ```
+
+#### Using Vercel Dashboard
+
+1. Go to [vercel.com](https://vercel.com/dashboard)
+2. Click "Add New" → "Project"
+3. Import your Git repository
+4. Configure:
+   - **Root Directory**: `backend`
+   - **Framework Preset**: Other
+   - **Build Command**: (leave empty, auto-detected)
+   - **Output Directory**: (leave empty)
+
+5. Add environment variables (see below)
+
+#### Environment Variables for Backend
+
+In Vercel project settings, add:
+
+- `MONGODB_URL` - Your MongoDB connection string
+- `DATABASE_NAME` - Database name (default: `botboss`)
+- `SECRET_KEY` - JWT secret key
+- `OPENAI_API_KEY` - Your OpenAI API key
+
+See `VERCEL_BACKEND_DEPLOYMENT.md` for detailed instructions.
 
 ### 3. Update Frontend Environment Variable
 
-After backend is deployed, update `VITE_API_URL` in Vercel to point to your backend URL.
+After backend is deployed on Vercel, copy your backend URL (e.g., `https://your-backend.vercel.app`) and add it to your frontend's Vercel project:
+
+- **Key**: `VITE_API_URL`
+- **Value**: `https://your-backend.vercel.app`
 
 ### 4. CORS Configuration
 
